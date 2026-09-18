@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebDesk</title>
+  <style>
+    :root {
+      --ink: #1f1f1f;
+      --muted: #616161;
+      --line: #d9d9d9;
+      --panel: rgba(255, 255, 255, .94);
+      --accent: #0067c0;
+      --accent-warm: #d83b01;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; overflow: hidden; color: var(--ink); font: 14px "Segoe UI", sans-serif; background: #a9c5d8; }
+    .desktop { position: relative; min-height: 100vh; overflow: hidden; background-image: var(--wallpaper-image, radial-gradient(ellipse at 48% 82%, rgba(0, 63, 255, .98) 0 7%, transparent 27%), radial-gradient(ellipse at 62% 48%, #087dff 0 10%, transparent 34%), radial-gradient(ellipse at 39% 54%, #159ef1 0 12%, transparent 32%), radial-gradient(ellipse at 70% 5%, rgba(255,255,255,.7), transparent 35%), linear-gradient(135deg, #b8d5e5 0%, #d9e8ef 44%, #8eacc5 100%)); background-position: center; background-size: cover; }
+    .desktop { filter: brightness(var(--screen-brightness, 1)); }
+    .desktop::before { content: ""; position: absolute; inset: -20%; opacity: .72; background: radial-gradient(ellipse at 46% 34%, transparent 0 17%, rgba(20, 125, 245, .9) 18% 20%, transparent 21% 26%, rgba(0, 73, 224, .82) 27% 30%, transparent 31% 37%, rgba(0, 43, 174, .88) 38% 41%, transparent 42%), radial-gradient(ellipse at 58% 78%, transparent 0 14%, rgba(0, 31, 144, .9) 15% 18%, transparent 19% 25%, rgba(0, 113, 243, .95) 26% 30%, transparent 31%); transform: rotate(-16deg) scale(1.1); filter: blur(1px); }
+    .desktop.custom-wallpaper::before { display: none; }
+    .brand { display: none; }
+    .shortcut-grid { position: absolute; z-index: 2; top: 24px; left: 18px; display: grid; gap: 14px; width: 88px; }
+    .shortcut { display: grid; justify-items: center; gap: 7px; border: 0; color: var(--ink); background: none; cursor: pointer; font: inherit; }
+    .shortcut-icon { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid rgba(255,255,255,.75); border-radius: 7px; background: rgba(255,255,255,.48); color: white; font-size: 0; box-shadow: 0 4px 10px rgba(20,72,110,.12); }
+    .shortcut .shortcut-icon { background-color: white; }
+    .shortcut-icon::before { display: block; width: 30px; height: 30px; content: ""; background: currentColor; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; -webkit-mask-size: 30px 30px; mask-position: center; mask-repeat: no-repeat; mask-size: 30px 30px; }
+    .shortcut[data-open="files"] .shortcut-icon::before { -webkit-mask-image: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/folder_24_filled.svg"); mask-image: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/folder_24_filled.svg"); color: #e89200; }
+    .shortcut[data-open="browser"] .shortcut-icon::before { -webkit-mask-image: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/globe_24_filled.svg"); mask-image: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/globe_24_filled.svg"); color: #1265bc; }
+    .shortcut[data-open="recycle"] .shortcut-icon::before { -webkit-mask-image: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/delete_24_regular.svg"); mask-image: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/delete_24_regular.svg"); color: #526575; }
+    .shortcut[data-open="camera"] .shortcut-icon::before { -webkit-mask-image: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/camera_24_filled.svg"); mask-image: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/camera_24_filled.svg"); color: #be254b; }
+    .shortcut:hover .shortcut-icon { border-color: var(--accent); background: rgba(255,255,255,.8); transform: translateY(-2px); }
+    .shortcut { position: absolute; width: 88px; cursor: grab; }
+    .shortcut.dragging { opacity: .65; cursor: grabbing; }
+    .shortcut span:last-child { font-size: 12px; }
+    .taskbar { position: absolute; z-index: 50; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 2px 8px; border-top: 1px solid rgba(255,255,255,.78); background: rgba(244,248,251,.78); backdrop-filter: blur(18px); box-shadow: 0 -4px 18px rgba(34,83,120,.12); }
+    .start-button, .task-button, .tray { border: 0; color: var(--ink); background: transparent; cursor: pointer; }
+    .start-button { display: grid; place-items: center; width: 32px; height: 30px; border-radius: 4px; color: transparent; font-size: 0; }
+    .start-button::before { content: ""; width: 16px; height: 16px; background: linear-gradient(90deg, #087bd6 0 45%, transparent 45% 55%, #087bd6 55%), linear-gradient(0deg, #087bd6 0 45%, transparent 45% 55%, #087bd6 55%); }
+    .start-button:hover, .task-button:hover { background: #e5f2fc; }
+    .task-button { width: 34px; height: 30px; padding: 0; border-radius: 4px; font-size: 0; }
+    .task-button::before { display: block; color: #1769ae; font-size: 15px; font-weight: 700; }
+    .task-button:nth-of-type(2)::before { content: "▣"; color: #e9a21b; }
+    .task-button:nth-of-type(3)::before { content: "N"; color: #146fc1; }
+    .task-button:nth-of-type(4)::before { content: "+"; color: #1275c8; }
+    .task-button.active { color: var(--accent); background: #dceeff; box-shadow: inset 0 -2px var(--accent); }
+    .tray { position: fixed; right: 12px; bottom: 3px; color: #263b49; cursor: default; font-size: 11px; line-height: 13px; text-align: right; white-space: pre-line; }
+    .tray::before { content: "☀  15°C\A Teilw. sonnig"; white-space: pre; position: fixed; left: 10px; bottom: 3px; color: #30424f; text-align: left; }
+    .tray-tools { position: fixed; right: 86px; bottom: 2px; display: flex; gap: 2px; }
+    .tray-tool { width: 28px; height: 28px; border: 0; border-radius: 4px; color: #30424f; background: transparent; cursor: pointer; font-size: 15px; }
+    .tray-tool:hover { background: #e5f2fc; }
+    .start-menu { position: absolute; z-index: 60; bottom: 44px; left: 50%; display: none; width: min(420px, calc(100vw - 24px)); padding: 22px; border: 1px solid #c8d8e6; border-radius: 7px; background: rgba(250,252,255,.96); backdrop-filter: blur(18px); box-shadow: 0 18px 45px rgba(32,72,106,.25); transform: translateX(-50%); }
+    .start-menu.open { display: block; animation: rise-center .18s ease-out; }
+    .start-menu { max-height: calc(100vh - 70px); overflow-y: auto; }
+    .start-title { margin: 0 0 14px; font-size: 18px; }
+    .app-launcher { display: grid; gap: 7px; }
+    .app-launcher button { padding: 11px; border: 0; border-radius: 4px; color: var(--ink); text-align: left; background: transparent; cursor: pointer; font: inherit; }
+    .app-launcher button:hover { background: #e5f2fc; }
+    .window { position: absolute; z-index: 10; min-width: 300px; width: 520px; overflow: hidden; border: 1px solid #b9c9d6; border-radius: 7px; background: var(--panel); box-shadow: 0 18px 45px rgba(30,73,108,.25); animation: pop .2s ease-out; }
+    .window.hidden { display: none; }
+    .window.maximized { inset: 28px 24px 78px !important; width: auto !important; height: auto !important; }
+    .titlebar { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px 0 15px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.72); cursor: grab; user-select: none; }
+    .titlebar strong { flex: 1; font-size: 13px; }
+    .window-controls { position: relative; z-index: 2; display: flex; gap: 4px; }
+    .window-controls button { width: 30px; height: 25px; border: 0; border-radius: 3px; color: var(--muted); background: transparent; cursor: pointer; }
+    .window-controls button:hover { color: var(--ink); background: #e5f2fc; }
+    .window-body { min-height: 220px; padding: 20px; }
+    .notes { width: 100%; min-height: 260px; resize: vertical; border: 1px solid #b8c8d5; border-radius: 3px; padding: 13px; color: var(--ink); outline: none; background: #fff; font: inherit; }
+    .notes:focus { border-color: var(--accent); }
+    .note-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .note-actions button { border: 1px solid #b8c8d5; border-radius: 3px; padding: 9px 13px; color: var(--ink); background: #f5f8fa; cursor: pointer; font: inherit; }
+    .note-actions button:hover { border-color: var(--accent); background: #e5f2fc; }
+    .note-actions button[data-note-action="delete"] { color: #ff9d9d; }
+    .note-status { margin-left: auto; color: var(--muted); font-size: 12px; }
+    .file-row { display: flex; align-items: center; gap: 13px; padding: 12px; border-radius: 9px; cursor: pointer; }
+    .file-row:hover { background: rgba(255,255,255,.08); }
+    .file-icon { color: var(--accent-warm); font-size: 20px; }
+    .file-meta { color: var(--muted); font-size: 12px; }
+    .explorer-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: var(--muted); font-size: 12px; }
+    .explorer-toolbar button { border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; color: var(--ink); background: rgba(53,208,186,.14); cursor: pointer; font: inherit; }
+    .explorer-toolbar button:hover { border-color: var(--accent); background: rgba(53,208,186,.25); }
+    .explorer-search { width: 100%; margin-bottom: 10px; border: 1px solid #b8c8d5; border-radius: 3px; padding: 8px 10px; color: var(--ink); outline: none; background: white; font: inherit; }
+    .explorer-actions { display: flex; gap: 6px; }
+    .explorer-actions select { border: 1px solid #b8c8d5; border-radius: 3px; padding: 6px; color: var(--ink); background: #f5f8fa; font: inherit; }
+    .recycle-empty { padding: 25px 10px; color: var(--muted); text-align: center; }
+    .empty-files { padding: 24px 10px; color: var(--muted); text-align: center; }
+    .calc { max-width: 290px; margin: auto; }
+    .calc-display { width: 100%; margin-bottom: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); text-align: right; background: rgba(0,0,0,.25); font-size: 24px; }
+    .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    .calc-keys button { height: 42px; border: 0; border-radius: 8px; color: var(--ink); background: rgba(255,255,255,.09); cursor: pointer; font: inherit; }
+    .calc-keys button:hover { background: rgba(53,208,186,.3); }
+    .app-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .app-card { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 11px; border: 1px solid #c8d8e6; border-radius: 5px; color: var(--ink); text-align: left; background: rgba(255,255,255,.64); }
+    .app-card:hover { border-color: var(--accent); background: #eaf5ff; }
+    .app-launch { display: grid; grid-template-columns: 38px 1fr; grid-template-rows: auto auto; align-items: center; gap: 2px 8px; min-width: 0; border: 0; color: inherit; text-align: left; background: transparent; cursor: pointer; font: inherit; }
+    .app-icon { display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 2px; border-radius: 9px; color: white; font-size: 20px; font-weight: 700; box-shadow: inset 0 1px rgba(255,255,255,.45), 0 3px 7px rgba(24,67,102,.16); }
+    .app-icon::before { line-height: 1; }
+    .app-launch::before { display: block; grid-row: 1 / span 2; width: 36px; height: 36px; padding: 0; border-radius: 9px; color: white; text-align: center; font-size: 0; font-weight: 700; box-shadow: inset 0 1px rgba(255,255,255,.45), 0 3px 7px rgba(24,67,102,.16); }
+    .app-launch[data-open="files"]::before { content: "▰"; background: linear-gradient(145deg, #ffc94d, #e89200); }
+    .app-launch[data-open="notes"]::before { content: "▤"; background: linear-gradient(145deg, #54b9ff, #176fc5); }
+    .app-launch[data-open="calculator"]::before { content: "＋"; background: linear-gradient(145deg, #8d9baa, #4e5d6b); }
+    .app-launch[data-open="calendar"]::before { content: "▦"; background: linear-gradient(145deg, #f06464, #bd2929); }
+    .app-launch[data-open="weather"]::before { content: "☀"; background: linear-gradient(145deg, #61c7ff, #1685d5); }
+    .app-launch[data-open="terminal"]::before { content: ">_"; padding-top: 10px; background: linear-gradient(145deg, #3b4b5c, #111a24); font-size: 13px; }
+    .app-launch[data-open="tasks"]::before { content: "✓"; background: linear-gradient(145deg, #58c88c, #16814b); }
+    .app-launch[data-open="timer"]::before { content: "◷"; background: linear-gradient(145deg, #a87cf4, #6341b7); }
+    .app-launch[data-open="paint"]::before { content: "◉"; background: linear-gradient(145deg, #ff9f70, #df4d32); }
+    .app-launch[data-open="system"]::before { content: "⚙"; background: linear-gradient(145deg, #8496a8, #3f5264); }
+    .app-launch[data-open="music"]::before { content: "♫"; background: linear-gradient(145deg, #f275b5, #bd2c75); }
+    .app-launch[data-open="gallery"]::before { content: "▧"; background: linear-gradient(145deg, #45c7b2, #087b8a); }
+    .icon-files { background: linear-gradient(145deg, #ffc94d, #e89200); }
+    .icon-files::before { content: "▰"; }
+    .icon-notes { background: linear-gradient(145deg, #54b9ff, #176fc5); }
+    .icon-notes::before { content: "▤"; }
+    .icon-calculator { background: linear-gradient(145deg, #8d9baa, #4e5d6b); }
+    .icon-calculator::before { content: "＋"; }
+    .icon-calendar { background: linear-gradient(145deg, #f06464, #bd2929); }
+    .icon-calendar::before { content: "▦"; }
+    .icon-weather { background: linear-gradient(145deg, #61c7ff, #1685d5); }
+    .icon-weather::before { content: "☀"; }
+    .icon-terminal { background: linear-gradient(145deg, #3b4b5c, #111a24); }
+    .icon-terminal::before { content: ">_"; font-size: 13px; }
+    .icon-tasks { background: linear-gradient(145deg, #58c88c, #16814b); }
+    .icon-tasks::before { content: "✓"; }
+    .icon-timer { background: linear-gradient(145deg, #a87cf4, #6341b7); }
+    .icon-timer::before { content: "◷"; }
+    .icon-paint { background: linear-gradient(145deg, #ff9f70, #df4d32); }
+    .icon-paint::before { content: "◉"; }
+    .icon-system { background: linear-gradient(145deg, #8496a8, #3f5264); }
+    .icon-system::before { content: "⚙"; }
+    .icon-music { background: linear-gradient(145deg, #f275b5, #bd2c75); }
+    .icon-music::before { content: "♫"; }
+    .icon-gallery { background: linear-gradient(145deg, #45c7b2, #087b8a); }
+    .icon-gallery::before { content: "▧"; }
+    .app-card strong { color: var(--accent); font-size: 15px; }
+    .app-card span { color: var(--muted); font-size: 12px; }
+    .pin-app { align-self: center; border: 0; border-radius: 3px; padding: 5px; color: var(--muted); background: transparent; cursor: pointer; font-size: 15px; }
+    .pin-app:hover, .pin-app.pinned { color: var(--accent); background: #dceeff; }
+    .pinned-apps { display: flex; align-items: center; gap: 3px; margin-left: 5px; }
+    .pinned-task { display: grid; place-items: center; width: 34px; height: 30px; border: 0; border-radius: 4px; color: var(--accent); background: transparent; cursor: pointer; font-size: 15px; }
+    .pinned-task::before { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: white; font-size: 14px; font-weight: 700; }
+    .pinned-task[data-app="files"]::before { content: "▰"; background: #e89200; }
+    .pinned-task[data-app="notes"]::before { content: "▤"; background: #176fc5; }
+    .pinned-task[data-app="calculator"]::before { content: "＋"; background: #596978; }
+    .pinned-task[data-app="calendar"]::before { content: "▦"; background: #bd2929; }
+    .pinned-task[data-app="weather"]::before { content: "☀"; background: #1685d5; }
+    .pinned-task[data-app="terminal"]::before { content: ">_"; background: #17222e; font-size: 9px; }
+    .pinned-task[data-app="tasks"]::before { content: "✓"; background: #16814b; }
+    .pinned-task[data-app="timer"]::before { content: "◷"; background: #6341b7; }
+    .pinned-task[data-app="paint"]::before { content: "◉"; background: #df4d32; }
+    .pinned-task[data-app="system"]::before { content: "⚙"; background: #3f5264; }
+    .pinned-task[data-app="music"]::before { content: "♫"; background: #bd2c75; }
+    .pinned-task[data-app="gallery"]::before { content: "▧"; background: #087b8a; }
+    .camera-preview { display: block; width: 100%; min-height: 250px; border: 1px solid #b8c8d5; border-radius: 3px; background: #101820; object-fit: cover; }
+    .camera-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .camera-controls button { border: 1px solid #b8c8d5; border-radius: 3px; padding: 8px 12px; color: white; background: var(--accent); cursor: pointer; font: inherit; }
+    .camera-controls button:disabled { cursor: not-allowed; opacity: .5; }
+    .camera-status { margin-top: 9px; color: var(--muted); font-size: 12px; }
+    .app-launch[data-open="camera"]::before { content: "◉"; background: linear-gradient(145deg, #ff7f91, #be254b); }
+    .pinned-task[data-app="camera"]::before { content: "◉"; background: #be254b; }
+    .app-launch[data-open="settings"]::before { content: "⚙"; background: linear-gradient(145deg, #8496a8, #3f5264); }
+    .pinned-task[data-app="settings"]::before { content: "⚙"; background: #3f5264; }
+    .app-launch[data-open="recycle"]::before { content: "▱"; background: linear-gradient(145deg, #9aa9b7, #526575); }
+    .pinned-task[data-app="recycle"]::before { content: "▱"; background: #526575; }
+    .app-launch::before, .pinned-task::before { content: ""; background-repeat: no-repeat; background-position: center; background-size: 22px 22px; background-color: white; }
+    .app-launch[data-open="files"]::before, .pinned-task[data-app="files"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/folder_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/folder_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="notes"]::before, .pinned-task[data-app="notes"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/note_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/note_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="calculator"]::before, .pinned-task[data-app="calculator"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/calculator_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/calculator_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="calendar"]::before, .pinned-task[data-app="calendar"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/calendar_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/calendar_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="weather"]::before, .pinned-task[data-app="weather"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/weather_sunny_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/weather_sunny_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="terminal"]::before, .pinned-task[data-app="terminal"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/code_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/code_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="tasks"]::before, .pinned-task[data-app="tasks"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/checkbox_checked_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/checkbox_checked_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="timer"]::before, .pinned-task[data-app="timer"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/timer_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/timer_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="paint"]::before, .pinned-task[data-app="paint"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/paint_brush_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/paint_brush_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="system"]::before, .pinned-task[data-app="system"]::before, .app-launch[data-open="settings"]::before, .pinned-task[data-app="settings"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/settings_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/settings_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="music"]::before, .pinned-task[data-app="music"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/music_note_2_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/music_note_2_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="gallery"]::before, .pinned-task[data-app="gallery"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/image_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/image_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="browser"]::before, .pinned-task[data-app="browser"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/globe_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/globe_24_filled.svg") center / 22px 22px no-repeat; }
+    .app-launch[data-open="camera"]::before, .pinned-task[data-app="camera"]::before { -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/camera_24_filled.svg") center / 22px 22px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/camera_24_filled.svg") center / 22px 22px no-repeat; }
+    .taskbar > .task-button { display: grid; place-items: center; width: 34px; height: 30px; padding: 0; color: transparent; font-size: 0; }
+    .taskbar > .task-button::before { display: block; width: 22px; height: 22px; content: ""; background-color: white; background-repeat: no-repeat; background-position: center; background-size: 18px 18px; }
+    .taskbar > .task-button:nth-of-type(2)::before { background-color: #e89200; -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/folder_24_filled.svg") center / 18px 18px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/folder_24_filled.svg") center / 18px 18px no-repeat; }
+    .taskbar > .task-button:nth-of-type(3)::before { background-color: #176fc5; -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/note_24_filled.svg") center / 18px 18px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/note_24_filled.svg") center / 18px 18px no-repeat; }
+    .taskbar > .task-button:nth-of-type(4)::before { background-color: #596978; -webkit-mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/calculator_24_filled.svg") center / 18px 18px no-repeat; mask: url("https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/calculator_24_filled.svg") center / 18px 18px no-repeat; }
+    .pinned-task:hover, .pinned-task.active { background: #dceeff; box-shadow: inset 0 -2px var(--accent); }
+    .start-menu-footer { margin-top: 15px; color: var(--muted); font-size: 11px; text-align: center; }
+    .start-search { width: 100%; margin-bottom: 14px; border: 1px solid #b8c8d5; border-radius: 3px; padding: 10px 12px; color: var(--ink); outline: none; background: white; font: inherit; }
+    .desktop-panel { position: absolute; z-index: 70; right: 12px; bottom: 42px; display: none; width: 330px; padding: 16px; border: 1px solid #c8d8e6; border-radius: 7px; background: rgba(250,252,255,.97); box-shadow: 0 18px 45px rgba(32,72,106,.25); }
+    .desktop-panel.open { display: block; animation: rise .18s ease-out; }
+    .panel-title { margin: 0 0 12px; font-size: 16px; }
+    .quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    .quick-button { border: 1px solid #c8d8e6; border-radius: 4px; padding: 11px; color: var(--ink); background: #f5f8fa; cursor: pointer; font: inherit; }
+    .quick-button.active, .quick-button:hover { border-color: var(--accent); color: var(--accent); background: #e5f2fc; }
+    .quick-slider { display: grid; gap: 5px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+    .quick-slider input { width: 100%; accent-color: var(--accent); }
+    .notification { padding: 10px; border: 1px solid #d5e0e8; border-radius: 4px; background: rgba(255,255,255,.72); }
+    .notification + .notification { margin-top: 7px; }
+    .notification strong, .notification span { display: block; }
+    .notification span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .toast-stack { position: fixed; z-index: 910; right: 16px; bottom: 52px; display: grid; gap: 8px; width: min(320px, calc(100vw - 32px)); }
+    .toast { padding: 12px 14px; border: 1px solid #c8d8e6; border-radius: 6px; color: var(--ink); background: rgba(250,252,255,.96); box-shadow: 0 10px 28px rgba(32,72,106,.22); animation: toast-in .2s ease-out; }
+    .toast strong, .toast span { display: block; }
+    .toast span { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .start-profile { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; padding-bottom: 13px; border-bottom: 1px solid #d5e0e8; }
+    .profile-avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: white; background: #1675c5; font-weight: 700; }
+    .profile-name { display: grid; gap: 2px; }
+    .profile-name span { color: var(--muted); font-size: 11px; }
+    .start-power { display: flex; justify-content: flex-end; gap: 5px; margin-top: 12px; }
+    .start-power button { border: 0; border-radius: 4px; padding: 7px 9px; color: var(--muted); background: transparent; cursor: pointer; font: inherit; }
+    .start-power button:hover { color: var(--accent); background: #e5f2fc; }
+    .standby-screen { position: fixed; z-index: 950; inset: 0; display: none; place-items: center; color: white; text-align: center; background: linear-gradient(145deg, rgba(3, 12, 22, .96), rgba(8, 36, 58, .94)); backdrop-filter: blur(12px); }
+    .standby-screen.open { display: grid; animation: standby-in .35s ease-out; }
+    .standby-content { display: grid; justify-items: center; gap: 8px; }
+    .standby-time { font-size: clamp(54px, 10vw, 108px); font-weight: 300; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+    .standby-date { color: #b9d5e8; font-size: 18px; }
+    .standby-hint { margin-top: 26px; color: #83b1cf; font-size: 12px; }
+    @keyframes standby-in { from { opacity: 0; } to { opacity: 1; } }
+    .context-menu { position: absolute; z-index: 80; display: none; width: 190px; padding: 5px; border: 1px solid #c8d8e6; border-radius: 5px; background: rgba(250,252,255,.98); box-shadow: 0 12px 30px rgba(32,72,106,.25); }
+    .context-menu.open { display: grid; gap: 2px; }
+    .context-menu button { border: 0; border-radius: 3px; padding: 9px; color: var(--ink); text-align: left; background: transparent; cursor: pointer; font: inherit; }
+    .context-menu button:hover { background: #e5f2fc; }
+    .widget-panel { position: absolute; z-index: 70; left: 12px; bottom: 42px; display: none; width: 330px; padding: 16px; border: 1px solid #c8d8e6; border-radius: 7px; background: rgba(250,252,255,.97); box-shadow: 0 18px 45px rgba(32,72,106,.25); }
+    .widget-panel.open { display: block; animation: rise .18s ease-out; }
+    .widget-card { padding: 12px; border: 1px solid #d5e0e8; border-radius: 5px; background: rgba(255,255,255,.7); }
+    .widget-card + .widget-card { margin-top: 8px; }
+    .widget-card strong, .widget-card span { display: block; }
+    .widget-card span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .task-view { position: absolute; z-index: 85; inset: 22px 18px 46px; display: none; overflow: auto; padding: 20px; border: 1px solid #c8d8e6; border-radius: 7px; background: rgba(245,249,253,.97); box-shadow: 0 18px 45px rgba(32,72,106,.25); }
+    .task-view.open { display: block; animation: rise .18s ease-out; }
+    .task-view-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+    .task-view-card { min-height: 90px; padding: 14px; border: 1px solid #c8d8e6; border-radius: 5px; color: var(--ink); background: white; cursor: pointer; }
+    .task-view-card:hover { border-color: var(--accent); background: #eaf5ff; }
+    .task-view-card span { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; }
+    .task-view-close { float: right; border: 0; color: var(--muted); background: transparent; cursor: pointer; font-size: 20px; }
+    .settings-list { display: grid; gap: 12px; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px; border: 1px solid #d5e0e8; border-radius: 4px; background: rgba(255,255,255,.65); }
+    .settings-row span { color: var(--muted); font-size: 12px; }
+    .settings-row button { border: 1px solid #b8c8d5; border-radius: 3px; padding: 7px 10px; color: var(--ink); background: #f5f8fa; cursor: pointer; font: inherit; }
+    .shortcut-manager { display: grid; gap: 8px; }
+    .shortcut-manager select { width: 100%; border: 1px solid #b8c8d5; border-radius: 3px; padding: 8px; color: var(--ink); background: #fff; font: inherit; }
+    .shortcut-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .shortcut-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #c8d8e6; border-radius: 12px; padding: 5px 8px; color: var(--muted); background: #f5f8fa; font-size: 11px; }
+    .shortcut-chip button { border: 0; padding: 0; color: #b42318; background: transparent; cursor: pointer; }
+    .app-launch::before, .pinned-task::before { display: none !important; }
+    .inline-app-icon { display: block; width: 36px; height: 36px; grid-row: 1 / span 2; }
+    .inline-app-icon.small { width: 22px; height: 22px; grid-row: auto; }
+    .pinned-task .inline-app-icon { grid-row: auto; }
+    .app-launch::before, .pinned-task::before, .taskbar > .task-button::before, .shortcut-icon::before { display: none !important; background-image: none !important; mask-image: none !important; -webkit-mask-image: none !important; }
+    .taskbar > .task-button .inline-app-icon { width: 18px; height: 18px; }
+    .wallpaper-input { max-width: 170px; font-size: 11px; }
+    body.dark-mode { --ink: #edf5ff; --muted: #a8bac9; --line: #43566a; --panel: rgba(26,39,53,.96); --accent: #67b7ff; background: #101a24; }
+    body.dark-mode .desktop { background: radial-gradient(ellipse at 50% 70%, #0645bb 0 8%, transparent 32%), linear-gradient(145deg, #172a3c, #0d1722); }
+    body.dark-mode .taskbar, body.dark-mode .start-menu, body.dark-mode .desktop-panel, body.dark-mode .context-menu { background: rgba(25,37,50,.96); border-color: #43566a; }
+    body.dark-mode .app-card, body.dark-mode .quick-button, body.dark-mode .notification, body.dark-mode .settings-row { background: rgba(42,58,73,.9); border-color: #43566a; color: var(--ink); }
+    body.dark-mode .start-search, body.dark-mode .notes, body.dark-mode .music-search input { color: var(--ink); border-color: #536a80; background: #1a2938; }
+    .calendar-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .calendar-head button, .pill-button { border: 1px solid #b8c8d5; border-radius: 3px; padding: 6px 10px; color: var(--ink); background: #f5f8fa; cursor: pointer; font: inherit; }
+    .calendar-head button:hover, .pill-button:hover { border-color: var(--accent); background: #e5f2fc; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+    .calendar-grid span { padding: 7px 2px; border-radius: 3px; }
+    .calendar-grid .weekday { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .calendar-grid .day { background: rgba(255,255,255,.72); }
+    .calendar-grid .today { color: white; background: var(--accent); }
+    .weather-main { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; }
+    .weather-temp { color: #087bd6; font-size: 42px; font-weight: 600; }
+    .weather-icon { font-size: 44px; }
+    .weather-location { color: var(--muted); }
+    .forecast { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    .forecast div { padding: 10px 5px; border: 1px solid #d5e0e8; border-radius: 4px; text-align: center; background: rgba(255,255,255,.68); }
+    .forecast strong, .forecast span { display: block; }
+    .forecast span { margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .terminal-output { height: 190px; overflow: auto; padding: 13px; border: 1px solid #a9bfce; border-radius: 3px; color: #ccecff; white-space: pre-wrap; background: #101820; font: 13px Consolas, monospace; }
+    .terminal-form { display: flex; gap: 8px; margin-top: 9px; }
+    .terminal-form input, .task-form input, .timer-input { min-width: 0; flex: 1; border: 1px solid #b8c8d5; border-radius: 3px; padding: 9px; color: var(--ink); outline: none; background: #fff; font: inherit; }
+    .terminal-form button, .task-form button, .timer-controls button { border: 1px solid #b8c8d5; border-radius: 3px; padding: 8px 12px; color: white; background: var(--accent); cursor: pointer; font: inherit; }
+    .task-form { display: flex; gap: 8px; margin-bottom: 12px; }
+    .task-list { display: grid; gap: 6px; max-height: 220px; overflow: auto; padding: 0; list-style: none; }
+    .task-list li { display: flex; align-items: center; gap: 8px; padding: 9px; border: 1px solid #d5e0e8; border-radius: 3px; background: rgba(255,255,255,.65); }
+    .task-list li.done span { color: var(--muted); text-decoration: line-through; }
+    .task-list button { margin-left: auto; border: 0; color: #b42318; background: transparent; cursor: pointer; }
+    .timer-display { margin: 12px 0 18px; color: var(--accent); text-align: center; font-size: 48px; font-variant-numeric: tabular-nums; }
+    .timer-controls { display: flex; justify-content: center; gap: 8px; }
+    .paint-wrap { overflow: hidden; border: 1px solid #b8c8d5; border-radius: 3px; background: white; }
+    #paint-canvas { display: block; width: 100%; height: 250px; cursor: crosshair; touch-action: none; }
+    .paint-tools { display: flex; align-items: center; gap: 8px; padding-top: 10px; }
+    .paint-tools input { width: 42px; height: 30px; padding: 0; border: 1px solid #b8c8d5; }
+    .system-stats { display: grid; gap: 12px; }
+    .system-stats div { padding: 12px; border: 1px solid #d5e0e8; border-radius: 4px; background: rgba(255,255,255,.65); }
+    .system-stats strong, .system-stats span { display: block; }
+    .system-stats span { margin-top: 4px; color: var(--muted); }
+    .music-file { width: 100%; margin-bottom: 12px; }
+    .music-now { margin-bottom: 12px; padding: 13px; border: 1px solid #d5e0e8; border-radius: 4px; background: rgba(255,255,255,.65); }
+    .music-now strong, .music-now span { display: block; }
+    .music-now span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .music-audio { width: 100%; margin-bottom: 12px; }
+    .music-playlist { display: grid; gap: 5px; max-height: 120px; overflow: auto; padding: 0; list-style: none; }
+    .music-playlist button { width: 100%; overflow: hidden; border: 1px solid #d5e0e8; border-radius: 3px; padding: 8px; color: var(--ink); text-align: left; text-overflow: ellipsis; white-space: nowrap; background: rgba(255,255,255,.65); cursor: pointer; font: inherit; }
+    .music-playlist button.active { border-color: var(--accent); color: var(--accent); background: #e5f2fc; }
+    .music-search { display: flex; gap: 7px; margin-bottom: 12px; }
+    .music-search input { min-width: 0; flex: 1; border: 1px solid #b8c8d5; border-radius: 3px; padding: 9px; color: var(--ink); outline: none; background: #fff; font: inherit; }
+    .music-search button { border: 1px solid #b8c8d5; border-radius: 3px; padding: 8px 11px; color: white; background: var(--accent); cursor: pointer; font: inherit; }
+    .online-results { display: grid; gap: 5px; max-height: 150px; overflow: auto; margin: 10px 0 12px; padding: 0; list-style: none; }
+    .online-results button { display: grid; width: 100%; gap: 2px; border: 1px solid #d5e0e8; border-radius: 3px; padding: 8px; color: var(--ink); text-align: left; background: rgba(255,255,255,.65); cursor: pointer; font: inherit; }
+    .online-results button:hover { border-color: var(--accent); background: #e5f2fc; }
+    .online-results span { color: var(--muted); font-size: 11px; }
+    .online-status { color: var(--muted); font-size: 12px; }
+    .boot-screen { position: fixed; z-index: 999; inset: 0; display: grid; place-items: center; color: white; background: #07121d; transition: opacity .45s ease, visibility .45s ease; }
+    .boot-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .boot-content { display: grid; justify-items: center; gap: 20px; width: min(280px, calc(100vw - 40px)); }
+    .boot-logo { display: grid; grid-template-columns: repeat(2, 16px); gap: 3px; color: #4aaeff; font-size: 0; }
+    .boot-logo span { width: 16px; height: 16px; background: currentColor; }
+    .boot-title { margin: 0; letter-spacing: .08em; font-size: 18px; font-weight: 400; }
+    .boot-subtitle { margin: -12px 0 0; color: #9eb5c8; font-size: 12px; }
+    .boot-percent { margin: -8px 0 0; color: #d9edff; font-variant-numeric: tabular-nums; font-size: 13px; }
+    .boot-loader { width: 100%; height: 3px; overflow: hidden; border-radius: 5px; background: #263b4b; }
+    .boot-loader span { display: block; width: 35%; height: 100%; border-radius: inherit; background: #4aaeff; animation: boot-progress 1.15s ease-in-out infinite; }
+    @keyframes boot-progress { 0% { transform: translateX(-120%); } 100% { transform: translateX(330%); } }
+    .browser-toolbar { display: flex; gap: 6px; margin-bottom: 8px; }
+    .browser-toolbar button { width: 32px; border: 1px solid #b8c8d5; border-radius: 3px; color: var(--ink); background: #f5f8fa; cursor: pointer; font: inherit; }
+    .browser-toolbar button:hover { border-color: var(--accent); background: #e5f2fc; }
+    .browser-address { min-width: 0; flex: 1; border: 1px solid #b8c8d5; border-radius: 3px; padding: 8px 10px; color: var(--ink); outline: none; background: white; font: inherit; }
+    .browser-tabs { display: flex; gap: 4px; margin-bottom: 7px; }
+    .browser-tab { max-width: 180px; overflow: hidden; border: 1px solid #c8d8e6; border-radius: 4px 4px 0 0; padding: 6px 10px; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; background: #eaf2f8; cursor: pointer; font-size: 12px; }
+    .browser-tab.active { color: var(--ink); background: white; }
+    .browser-view { display: block; width: 100%; height: 360px; border: 1px solid #b8c8d5; border-radius: 3px; background: white; }
+    .browser-hint { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; color: var(--muted); font-size: 11px; }
+    .browser-hint a { color: var(--accent); }
+    .app-launch[data-open="browser"]::before { content: "◎"; background: linear-gradient(145deg, #67c8ff, #1265bc); }
+    .pinned-task[data-app="browser"]::before { content: "◎"; background: #1265bc; }
+    @keyframes pop { from { opacity: 0; transform: scale(.97) translateY(8px); } to { opacity: 1; transform: none; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @keyframes rise-center { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+    @media (max-width: 650px) { .window { min-width: 0; width: calc(100vw - 32px); } .task-button { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="boot-screen" id="boot-screen" aria-label="WebDesk wird gestartet"><div class="boot-content"><div class="boot-logo" aria-hidden="true"><span></span><span></span><span></span><span></span></div><h1 class="boot-title">WebDesk</h1><p class="boot-subtitle">Arbeitsfläche wird vorbereitet</p><div class="boot-percent" id="boot-percent">0%</div><div class="boot-loader" aria-hidden="true"><span></span></div></div></div>
+  <main class="desktop" id="desktop">
+    <div class="brand">WEBDESK / 01</div>
+    <div class="shortcut-grid" id="desktop-shortcuts"></div>
+
+    <section class="window hidden" id="files" style="left: 185px; top: 92px; width: 450px;">
+      <header class="titlebar"><strong>Datei-Explorer</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="explorer-toolbar"><span id="file-count">0 Dateien</span><div class="explorer-actions"><select id="file-sort" aria-label="Dateien sortieren"><option value="name">Name</option><option value="size">Größe</option></select><button type="button" id="new-note">+ Neue Notiz</button></div></div><input class="explorer-search" id="file-search" placeholder="Dateien durchsuchen..." aria-label="Dateien durchsuchen"><div id="file-list"></div></div>
+    </section>
+
+    <section class="window hidden" id="notes" style="left: 270px; top: 145px; width: 430px;">
+      <header class="titlebar"><strong>Notizen</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><textarea class="notes" placeholder="Schreibe hier etwas..." id="notes-text"></textarea><div class="note-actions"><button type="button" data-note-action="save">Speichern</button><button type="button" data-note-action="delete">Loeschen</button><span class="note-status" id="notes-status"></span></div></div>
+    </section>
+
+    <section class="window hidden" id="calculator" style="left: 350px; top: 110px; width: 350px;">
+      <header class="titlebar"><strong>Rechner</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="calc"><div class="calc-display" id="calc-display">0</div><div class="calc-keys"><button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="/">/</button><button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="*">*</button><button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="-">-</button><button data-key="0">0</button><button data-key="C">C</button><button data-key="=">=</button><button data-key="+">+</button></div></div></div>
+    </section>
+
+    <section class="window hidden" id="calendar" style="left: 220px; top: 125px; width: 390px;">
+      <header class="titlebar"><strong>Kalender</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="calendar-head"><button id="calendar-prev">&lt;</button><strong id="calendar-title"></strong><button id="calendar-next">&gt;</button></div><div class="calendar-grid" id="calendar-grid"></div></div>
+    </section>
+
+    <section class="window hidden" id="weather" style="left: 420px; top: 92px; width: 410px;">
+      <header class="titlebar"><strong>Wetter</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="weather-main"><span class="weather-icon">☀</span><div><div class="weather-temp">15°C</div><div class="weather-location">Berlin, Deutschland · Teilweise sonnig</div></div></div><div class="forecast"><div><strong>Heute</strong><span>☀ 15°</span></div><div><strong>Sa</strong><span>⛅ 17°</span></div><div><strong>So</strong><span>☁ 13°</span></div><div><strong>Mo</strong><span>☀ 18°</span></div></div></div>
+    </section>
+
+    <section class="window hidden" id="terminal" style="left: 300px; top: 175px; width: 500px;">
+      <header class="titlebar"><strong>Terminal</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="terminal-output" id="terminal-output">WebDesk Terminal [Version 1.0]\nTippe "help" für verfügbare Befehle.\n</div><form class="terminal-form" id="terminal-form"><input id="terminal-input" autocomplete="off" placeholder="Befehl eingeben..." aria-label="Terminal-Befehl"><button type="submit">Ausführen</button></form></div>
+    </section>
+
+    <section class="window hidden" id="tasks" style="left: 540px; top: 145px; width: 400px;">
+      <header class="titlebar"><strong>Aufgaben</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><form class="task-form" id="task-form"><input id="task-input" placeholder="Neue Aufgabe..." aria-label="Neue Aufgabe"><button type="submit">Hinzufügen</button></form><ul class="task-list" id="task-list"></ul></div>
+    </section>
+
+    <section class="window hidden" id="timer" style="left: 610px; top: 100px; width: 330px;">
+      <header class="titlebar"><strong>Fokus-Timer</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><input class="timer-input" id="timer-seconds" type="number" min="1" value="300" aria-label="Timer in Sekunden"><div class="timer-display" id="timer-display">05:00</div><div class="timer-controls"><button id="timer-start">Start</button><button id="timer-reset">Reset</button></div></div>
+    </section>
+
+    <section class="window hidden" id="paint" style="left: 170px; top: 170px; width: 470px;">
+      <header class="titlebar"><strong>Zeichenbrett</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="paint-wrap"><canvas id="paint-canvas" width="428" height="250"></canvas></div><div class="paint-tools"><input id="paint-color" type="color" value="#0067c0" aria-label="Stiftfarbe"><button class="pill-button" id="paint-clear" type="button">Leeren</button></div></div>
+    </section>
+
+    <section class="window hidden" id="system" style="left: 380px; top: 120px; width: 390px;">
+      <header class="titlebar"><strong>Systeminformationen</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="system-stats"><div><strong>WebDesk Edition</strong><span>Windows-inspirierte Browser-Arbeitsfläche</span></div><div><strong>Browser</strong><span id="system-browser">Wird erkannt...</span></div><div><strong>Bildschirm</strong><span id="system-screen"></span></div><div><strong>Speicher</strong><span id="system-storage"></span></div></div></div>
+    </section>
+
+    <section class="window hidden" id="music" style="left: 290px; top: 130px; width: 390px;">
+      <header class="titlebar"><strong>Musik</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><form class="music-search" id="music-search"><input id="music-query" placeholder="Lied oder Interpret suchen..." aria-label="Online nach Musik suchen"><button type="submit">Suchen</button></form><div class="online-status" id="online-status">Online-Suche nach Liedern und Interpreten</div><ul class="online-results" id="online-results"></ul><input class="music-file" id="music-upload" type="file" accept="audio/*" multiple><div class="music-now"><strong id="music-title">Noch kein Titel ausgewählt</strong><span id="music-status">Wähle lokale Musik oder suche online nach einem Lied.</span></div><audio class="music-audio" id="music-audio" controls preload="metadata"></audio><div class="timer-controls"><button id="music-prev" type="button">Zurück</button><button id="music-next" type="button">Nächster Titel</button></div><ul class="music-playlist" id="music-playlist"></ul></div>
+    </section>
+
+    <section class="window hidden" id="gallery" style="left: 250px; top: 110px; width: 440px;">
+      <header class="titlebar"><strong>Galerie</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="weather-main"><span class="weather-icon">🖼</span><div><div class="weather-temp" id="gallery-count">0</div><div class="weather-location">Bilder in deiner WebDesk-Galerie</div></div></div><input id="gallery-upload" type="file" accept="image/*" multiple><div id="gallery-list" class="file-meta">Noch keine Bilder ausgewählt.</div></div>
+    </section>
+
+    <section class="window hidden" id="recycle" style="left: 310px; top: 150px; width: 410px;">
+      <header class="titlebar"><strong>Papierkorb</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="explorer-toolbar"><span id="trash-count">0 Elemente</span><button type="button" id="empty-trash">Papierkorb leeren</button></div><div id="trash-list"></div></div>
+    </section>
+
+    <section class="window hidden" id="browser" style="left: 150px; top: 65px; width: 720px;">
+      <header class="titlebar"><strong>WebDesk Browser</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="browser-tabs"><button class="browser-tab active" id="browser-tab-1">Neuer Tab</button><button class="browser-tab" id="browser-new-tab">+</button></div><form class="browser-toolbar" id="browser-form"><button type="button" id="browser-back" title="Zurück">‹</button><button type="button" id="browser-forward" title="Vorwärts">›</button><button type="button" id="browser-reload" title="Neu laden">↻</button><input class="browser-address" id="browser-address" value="https://example.com" aria-label="Webadresse oder Suchbegriff"><button type="submit" title="Öffnen">→</button><button type="button" id="browser-open-external" title="Im normalen Browser öffnen">↗</button></form><iframe class="browser-view" id="browser-view" title="Webseite" src="https://example.com"></iframe><div class="browser-hint"><span id="browser-status">Bereit</span><a id="browser-external" href="https://example.com" target="_blank" rel="noopener">In neuem Tab öffnen</a></div></div>
+    </section>
+
+    <section class="window hidden" id="camera" style="left: 250px; top: 90px; width: 480px;">
+      <header class="titlebar"><strong>Kamera</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><video class="camera-preview" id="camera-video" autoplay muted playsinline></video><canvas id="camera-canvas" hidden></canvas><div class="camera-controls"><button id="camera-start" type="button">Kamera starten</button><button id="camera-snapshot" type="button" disabled>Foto aufnehmen</button><button id="camera-stop" type="button" disabled>Kamera stoppen</button></div><div class="camera-status" id="camera-status">Beim Start wird nach deiner Kameraberechtigung gefragt.</div></div>
+    </section>
+
+    <section class="window hidden" id="settings" style="left: 360px; top: 105px; width: 430px;">
+      <header class="titlebar"><strong>Einstellungen</strong><div class="window-controls"><button data-action="minimize">_</button><button data-action="maximize">[]</button><button data-action="close">x</button></div></header>
+      <div class="window-body"><div class="settings-list"><div class="settings-row"><div><strong>Erscheinungsbild</strong><span>Helles oder dunkles Design</span></div><button id="theme-toggle">Dunkelmodus</button></div><div class="settings-row"><div><strong>Hintergrund</strong><span>Eigenes Bild lokal verwenden</span></div><input class="wallpaper-input" id="wallpaper-input" type="file" accept="image/*" aria-label="Eigenes Hintergrundbild auswählen"></div><div class="settings-row"><div><strong>Hintergrund zurücksetzen</strong><span>Windows-Bloom wiederherstellen</span></div><button id="reset-wallpaper">Zurücksetzen</button></div><div class="settings-row"><div><strong>Desktop-Verknüpfung hinzufügen</strong><span>App auswählen</span></div><div class="shortcut-manager"><select id="shortcut-app-select" aria-label="App für Desktop-Verknüpfung"></select><button id="add-shortcut" type="button">Hinzufügen</button><div class="shortcut-list" id="shortcut-list"></div></div></div><div class="settings-row"><div><strong>Benachrichtigungen</strong><span>Systemmeldungen anzeigen</span></div><button id="notification-toggle">Aktiv</button></div><div class="settings-row"><div><strong>Arbeitsfläche</strong><span>Fensterpositionen zurücksetzen</span></div><button id="reset-windows">Zurücksetzen</button></div></div></div>
+    </section>
+
+    <nav class="start-menu" id="start-menu"><h2 class="start-title">WebDesk</h2><div class="start-profile"><div class="profile-avatar">W</div><div class="profile-name"><strong>WebDesk Benutzer</strong><span>Lokales Konto</span></div></div><input class="start-search" id="start-search" placeholder="Apps, Einstellungen und Dateien suchen..." aria-label="Startmenü durchsuchen"><div class="app-grid">
+      <div class="app-card"><button class="app-launch" data-open="files"><strong>Dateien</strong><span>Datei-Explorer</span></button><button class="pin-app" data-pin="files" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="notes"><strong>Notizen</strong><span>Gedanken speichern</span></button><button class="pin-app" data-pin="notes" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="calculator"><strong>Rechner</strong><span>Schnell rechnen</span></button><button class="pin-app" data-pin="calculator" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="calendar"><strong>Kalender</strong><span>Termine und Tage</span></button><button class="pin-app" data-pin="calendar" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="weather"><strong>Wetter</strong><span>Aktuelle Vorhersage</span></button><button class="pin-app" data-pin="weather" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="terminal"><strong>Terminal</strong><span>Befehle ausführen</span></button><button class="pin-app" data-pin="terminal" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="tasks"><strong>Aufgaben</strong><span>To-do-Liste</span></button><button class="pin-app" data-pin="tasks" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="timer"><strong>Timer</strong><span>Fokus behalten</span></button><button class="pin-app" data-pin="timer" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="paint"><strong>Zeichenbrett</strong><span>Freies Zeichnen</span></button><button class="pin-app" data-pin="paint" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="system"><strong>System</strong><span>Informationen anzeigen</span></button><button class="pin-app" data-pin="system" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="music"><strong>Musik</strong><span>Mini-Player</span></button><button class="pin-app" data-pin="music" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="gallery"><strong>Galerie</strong><span>Deine Bilder</span></button><button class="pin-app" data-pin="gallery" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="browser"><strong>Browser</strong><span>Webseiten öffnen</span></button><button class="pin-app" data-pin="browser" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="camera"><strong>Kamera</strong><span>Laptopkamera verwenden</span></button><button class="pin-app" data-pin="camera" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="settings"><strong>Einstellungen</strong><span>WebDesk anpassen</span></button><button class="pin-app" data-pin="settings" title="An Taskleiste anheften">☆</button></div>
+      <div class="app-card"><button class="app-launch" data-open="recycle"><strong>Papierkorb</strong><span>Gelöschte Dateien</span></button><button class="pin-app" data-pin="recycle" title="An Taskleiste anheften">☆</button></div>
+    </div><div class="start-power"><button id="start-lock">Sperren</button><button id="start-sleep">Standby</button><button id="start-restart">Neustart</button></div><div class="start-menu-footer">Stern anklicken, um Apps an die Taskleiste zu pinnen</div></nav>
+    <div class="desktop-panel" id="quick-panel"><h3 class="panel-title">Schnelleinstellungen</h3><div class="quick-grid"><button class="quick-button active" data-quick="wifi">WLAN</button><button class="quick-button active" data-quick="bluetooth">Bluetooth</button><button class="quick-button" data-quick="focus">Fokus</button><button class="quick-button" data-quick="night">Nachtlicht</button><button class="quick-button" id="standby-button" data-quick="standby">Standby</button></div><label class="quick-slider">Lautstärke <input id="volume-slider" type="range" min="0" max="100" value="70"></label><label class="quick-slider">Helligkeit <input id="brightness-slider" type="range" min="40" max="100" value="100"></label></div>
+    <div class="desktop-panel" id="notification-panel"><h3 class="panel-title">Benachrichtigungen</h3><button class="task-view-close" id="clear-notifications" title="Benachrichtigungen löschen">×</button><div id="notification-list"><div class="notification"><strong>WebDesk ist bereit</strong><span>Deine Apps und Pins wurden geladen.</span></div><div class="notification"><strong>Musik</strong><span>Online-Suche und lokale Wiedergabe verfügbar.</span></div></div></div>
+    <div class="widget-panel" id="widget-panel"><button class="task-view-close" id="widget-close" title="Widgets schließen">×</button><h3 class="panel-title">Widgets</h3><div class="widget-card"><strong id="widget-time">00:00</strong><span id="widget-date">Heute</span></div><div class="widget-card"><strong>Wetter in Berlin</strong><span>☀ 15°C · Teilweise sonnig</span></div><div class="widget-card"><strong>Fokus</strong><span>Starte den Fokus-Timer für konzentriertes Arbeiten.</span></div></div>
+    <section class="task-view" id="task-view"><button class="task-view-close" id="task-view-close">×</button><h2>Aufgabenansicht</h2><p class="file-meta">Offene Fenster</p><div class="task-view-grid" id="task-view-grid"></div></section>
+    <div class="context-menu" id="context-menu"><button data-context="refresh">Aktualisieren</button><button data-context="settings">Personalisieren</button><button data-context="system">Anzeigeeinstellungen</button></div>
+    <div class="standby-screen" id="standby-screen"><div class="standby-content"><div class="standby-time" id="standby-time">00:00</div><div class="standby-date" id="standby-date"></div><div class="standby-hint">Klicken oder eine Taste drücken zum Aufwecken</div></div></div>
+    <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+    <footer class="taskbar"><button class="start-button" id="start-button">W</button><button class="tray-tool" id="task-view-button" title="Aufgabenansicht">▦</button><button class="task-button active" data-open="files">Datei-Explorer</button><button class="task-button" data-open="notes">Notizen</button><button class="task-button" data-open="calculator">Rechner</button><div class="pinned-apps" id="pinned-apps"></div><div class="tray-tools"><button class="tray-tool" id="widget-button" title="Widgets">▤</button><button class="tray-tool" id="quick-button" title="Schnelleinstellungen">⌁</button><button class="tray-tool" id="notification-button" title="Benachrichtigungen">▣</button></div><span class="tray" id="clock"></span></footer>
+  </main>
+  <script>
+    const desktop = document.querySelector('#desktop');
+    let topLayer = 10;
+    const openWindow = (id) => { const window = document.querySelector(`#${id}`); window.classList.remove('hidden'); window.style.zIndex = ++topLayer; };
+    document.querySelectorAll('[data-open]').forEach((button) => button.addEventListener('click', () => { openWindow(button.dataset.open); document.querySelector('#start-menu').classList.remove('open'); }));
+    document.querySelector('#start-button').addEventListener('click', () => document.querySelector('#start-menu').classList.toggle('open'));
+    const startSearch = document.querySelector('#start-search'); startSearch.addEventListener('input', () => { const query = startSearch.value.toLowerCase(); document.querySelectorAll('.app-card').forEach((card) => { card.hidden = query && !card.textContent.toLowerCase().includes(query); }); });
+    const showToast = (title, message) => { const toast = document.createElement('div'); toast.className = 'toast'; const heading = document.createElement('strong'); heading.textContent = title; const text = document.createElement('span'); text.textContent = message; toast.append(heading, text); document.querySelector('#toast-stack').append(toast); setTimeout(() => toast.remove(), 3600); };
+    document.querySelector('#start-lock').addEventListener('click', () => { document.querySelector('#start-menu').classList.remove('open'); enterStandby(); showToast('WebDesk gesperrt', 'Klicken oder Taste drücken zum Fortfahren.'); }); document.querySelector('#start-sleep').addEventListener('click', () => { document.querySelector('#start-menu').classList.remove('open'); enterStandby(); }); document.querySelector('#start-restart').addEventListener('click', () => window.location.reload());
+    const closePanels = () => document.querySelectorAll('.desktop-panel, .widget-panel, .context-menu').forEach((panel) => panel.classList.remove('open')); const togglePanel = (id) => { const panel = document.querySelector(`#${id}`); const wasOpen = panel.classList.contains('open'); closePanels(); if (!wasOpen) panel.classList.add('open'); };
+    document.querySelector('#quick-button').addEventListener('click', () => togglePanel('quick-panel')); document.querySelector('#notification-button').addEventListener('click', () => togglePanel('notification-panel')); document.querySelector('#widget-button').addEventListener('click', () => togglePanel('widget-panel')); document.querySelector('#widget-close').addEventListener('click', () => document.querySelector('#widget-panel').classList.remove('open')); document.querySelectorAll('[data-quick]').forEach((button) => button.addEventListener('click', () => button.classList.toggle('active'))); document.querySelector('#volume-slider').addEventListener('input', (event) => { document.querySelectorAll('audio').forEach((audioElement) => { audioElement.volume = Number(event.target.value) / 100; }); }); document.querySelector('#brightness-slider').addEventListener('input', (event) => { desktop.style.setProperty('--screen-brightness', Number(event.target.value) / 100); }); document.querySelector('#clear-notifications').addEventListener('click', () => { document.querySelector('#notification-list').replaceChildren(); showToast('Benachrichtigungen', 'Alle Meldungen gelöscht.'); });
+    const taskView = document.querySelector('#task-view'); const renderTaskView = () => { const grid = document.querySelector('#task-view-grid'); grid.replaceChildren(); document.querySelectorAll('.window:not(.hidden)').forEach((window) => { const card = document.createElement('button'); card.className = 'task-view-card'; card.innerHTML = `<strong>${window.querySelector('.titlebar strong').textContent}</strong><span>Fenster öffnen</span>`; card.addEventListener('click', () => { window.style.zIndex = ++topLayer; taskView.classList.remove('open'); }); grid.append(card); }); if (!grid.children.length) grid.innerHTML = '<p>Keine offenen Fenster.</p>'; }; document.querySelector('#task-view-button').addEventListener('click', () => { const wasOpen = taskView.classList.contains('open'); closePanels(); if (!wasOpen) { renderTaskView(); taskView.classList.add('open'); } else taskView.classList.remove('open'); }); document.querySelector('#task-view-close').addEventListener('click', () => taskView.classList.remove('open'));
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closePanels(); taskView.classList.remove('open'); } if (event.key === 'Meta' || event.key === 'Control') return; if (event.altKey && event.key === 'Tab') { event.preventDefault(); renderTaskView(); taskView.classList.add('open'); } });
+    document.querySelectorAll('.task-button, .pinned-task').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.task-button, .pinned-task').forEach((item) => item.classList.remove('active')); button.classList.add('active'); }));
+    const standbyScreen = document.querySelector('#standby-screen'); const standbyTime = document.querySelector('#standby-time'); const standbyDate = document.querySelector('#standby-date'); let standbyActive = false; const updateStandbyClock = () => { const now = new Date(); standbyTime.textContent = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); standbyDate.textContent = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }); }; const enterStandby = () => { closePanels(); standbyActive = true; updateStandbyClock(); standbyScreen.classList.add('open'); }; const leaveStandby = () => { if (!standbyActive) return; standbyActive = false; standbyScreen.classList.remove('open'); }; document.querySelector('#standby-button').addEventListener('click', enterStandby); standbyScreen.addEventListener('click', leaveStandby); document.addEventListener('keydown', (event) => { if (standbyActive && event.key !== 'Tab') leaveStandby(); }); setInterval(() => { if (standbyActive) updateStandbyClock(); }, 1000);
+    desktop.addEventListener('contextmenu', (event) => { if (event.target.closest('.window, .taskbar, .start-menu, .desktop-panel, .widget-panel')) return; event.preventDefault(); const menu = document.querySelector('#context-menu'); menu.style.left = `${Math.min(event.clientX, window.innerWidth - 205)}px`; menu.style.top = `${Math.min(event.clientY, window.innerHeight - 150)}px`; closePanels(); menu.classList.add('open'); }); document.addEventListener('click', (event) => { if (!event.target.closest('.context-menu, .tray-tools, .desktop-panel, .widget-panel')) closePanels(); });
+    document.querySelector('[data-context="refresh"]').addEventListener('click', () => window.location.reload()); document.querySelector('[data-context="settings"]').addEventListener('click', () => { closePanels(); openWindow('settings'); }); document.querySelector('[data-context="system"]').addEventListener('click', () => { closePanels(); openWindow('system'); });
+    const themeKey = 'webdesk-theme'; if (localStorage.getItem(themeKey) === 'dark') document.body.classList.add('dark-mode'); document.querySelector('#theme-toggle').addEventListener('click', () => { document.body.classList.toggle('dark-mode'); localStorage.setItem(themeKey, document.body.classList.contains('dark-mode') ? 'dark' : 'light'); }); document.querySelector('#notification-toggle').addEventListener('click', (event) => { event.currentTarget.textContent = event.currentTarget.textContent === 'Aktiv' ? 'Stumm' : 'Aktiv'; }); document.querySelector('#reset-windows').addEventListener('click', () => window.location.reload());
+    const wallpaperKey = 'webdesk-wallpaper'; const desktopElement = document.querySelector('#desktop'); const savedWallpaper = localStorage.getItem(wallpaperKey); if (savedWallpaper) { desktopElement.style.setProperty('--wallpaper-image', `url(${savedWallpaper})`); desktopElement.classList.add('custom-wallpaper'); } document.querySelector('#wallpaper-input').addEventListener('change', (event) => { const [file] = event.target.files; if (!file) return; const reader = new FileReader(); reader.addEventListener('load', () => { localStorage.setItem(wallpaperKey, reader.result); desktopElement.style.setProperty('--wallpaper-image', `url(${reader.result})`); desktopElement.classList.add('custom-wallpaper'); }); reader.readAsDataURL(file); }); document.querySelector('#reset-wallpaper').addEventListener('click', () => { localStorage.removeItem(wallpaperKey); desktopElement.style.removeProperty('--wallpaper-image'); desktopElement.classList.remove('custom-wallpaper'); });
+    const appNames = { files: 'Dateien', notes: 'Notizen', calculator: 'Rechner', calendar: 'Kalender', weather: 'Wetter', terminal: 'Terminal', tasks: 'Aufgaben', timer: 'Timer', paint: 'Zeichenbrett', system: 'System', music: 'Musik', gallery: 'Galerie', browser: 'Browser', camera: 'Kamera', settings: 'Einstellungen', recycle: 'Papierkorb' };
+    const shortcutIconUrls = { files: 'folder_24_filled', notes: 'note_24_filled', calculator: 'calculator_24_filled', calendar: 'calendar_24_filled', weather: 'weather_sunny_24_filled', terminal: 'code_24_filled', tasks: 'checkbox_checked_24_filled', timer: 'timer_24_filled', paint: 'paint_brush_24_filled', system: 'settings_24_filled', music: 'music_note_2_24_filled', gallery: 'image_24_filled', browser: 'globe_24_filled', camera: 'camera_24_filled', settings: 'settings_24_filled', recycle: 'delete_24_regular' };
+    const shortcutKey = 'webdesk-shortcuts'; let desktopShortcuts = []; try { desktopShortcuts = JSON.parse(localStorage.getItem(shortcutKey) || 'null') || ['files', 'browser', 'recycle', 'camera']; } catch { desktopShortcuts = ['files', 'browser', 'recycle', 'camera']; }
+    const shortcutPositions = JSON.parse(localStorage.getItem('webdesk-shortcut-positions') || '{}'); const saveShortcuts = () => { localStorage.setItem(shortcutKey, JSON.stringify(desktopShortcuts)); localStorage.setItem('webdesk-shortcut-positions', JSON.stringify(shortcutPositions)); }; const renderShortcutManager = () => { const select = document.querySelector('#shortcut-app-select'); const list = document.querySelector('#shortcut-list'); select.replaceChildren(); Object.entries(appNames).forEach(([id, name]) => { if (!desktopShortcuts.includes(id)) { const option = document.createElement('option'); option.value = id; option.textContent = name; select.append(option); } }); list.replaceChildren(); desktopShortcuts.forEach((id) => { const chip = document.createElement('span'); chip.className = 'shortcut-chip'; chip.textContent = appNames[id]; const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.title = 'Verknüpfung entfernen'; remove.addEventListener('click', () => { desktopShortcuts = desktopShortcuts.filter((entry) => entry !== id); saveShortcuts(); renderDesktopShortcuts(); renderShortcutManager(); }); chip.append(remove); list.append(chip); }); }; const renderDesktopShortcuts = () => { const area = document.querySelector('#desktop-shortcuts'); area.replaceChildren(); desktopShortcuts.forEach((id, index) => { const button = document.createElement('button'); button.className = 'shortcut'; button.dataset.open = id; const icon = document.createElement('span'); icon.className = 'shortcut-icon'; const iconUrl = `https://cdn.jsdelivr.net/npm/@fluentui/svg-icons@1.1.341/icons/${shortcutIconUrls[id]}.svg`; icon.style.webkitMaskImage = `url(${iconUrl})`; icon.style.maskImage = `url(${iconUrl})`; const label = document.createElement('span'); label.textContent = appNames[id]; button.append(icon, label); const position = shortcutPositions[id] || { x: 18, y: 24 + index * 87 }; button.style.left = `${position.x}px`; button.style.top = `${position.y}px`; button.addEventListener('click', () => openWindow(id)); button.addEventListener('pointerdown', (event) => { if (event.button !== 0) return; const startX = event.clientX - position.x; const startY = event.clientY - position.y; button.classList.add('dragging'); const move = (moveEvent) => { const x = Math.max(0, Math.min(window.innerWidth - 96, moveEvent.clientX - startX)); const y = Math.max(0, Math.min(window.innerHeight - 120, moveEvent.clientY - startY)); button.style.left = `${x}px`; button.style.top = `${y}px`; shortcutPositions[id] = { x, y }; }; const stop = () => { button.classList.remove('dragging'); saveShortcuts(); button.removeEventListener('pointermove', move); button.removeEventListener('pointerup', stop); }; button.addEventListener('pointermove', move); button.addEventListener('pointerup', stop); }); area.append(button); }); }; document.querySelector('#add-shortcut').addEventListener('click', () => { const id = document.querySelector('#shortcut-app-select').value; if (!id || desktopShortcuts.includes(id)) return; desktopShortcuts.push(id); saveShortcuts(); renderDesktopShortcuts(); renderShortcutManager(); }); renderDesktopShortcuts(); renderShortcutManager();
+    const shortcutArea = document.querySelector('#desktop-shortcuts'); const suppressedShortcutClicks = new WeakSet(); let activeShortcutDrag = null; shortcutArea.addEventListener('pointerdown', (event) => { const button = event.target.closest('.shortcut'); if (!button) return; event.preventDefault(); event.stopImmediatePropagation(); const areaRect = shortcutArea.getBoundingClientRect(); const buttonRect = button.getBoundingClientRect(); const id = button.dataset.open; const offsetX = event.clientX - buttonRect.left; const offsetY = event.clientY - buttonRect.top; let moved = false; const move = (moveEvent) => { const nextX = Math.max(0, Math.min(areaRect.width - buttonRect.width, moveEvent.clientX - areaRect.left - offsetX)); const nextY = Math.max(0, Math.min(areaRect.height - buttonRect.height, moveEvent.clientY - areaRect.top - offsetY)); if (Math.abs(nextX - button.offsetLeft) > 2 || Math.abs(nextY - button.offsetTop) > 2) moved = true; button.style.left = `${nextX}px`; button.style.top = `${nextY}px`; shortcutPositions[id] = { x: nextX, y: nextY }; }; const stop = () => { button.releasePointerCapture?.(event.pointerId); button.removeEventListener('pointermove', move); button.removeEventListener('pointerup', stop); button.classList.remove('dragging'); if (moved) { suppressedShortcutClicks.add(button); saveShortcuts(); setTimeout(() => suppressedShortcutClicks.delete(button), 0); } activeShortcutDrag = null; }; activeShortcutDrag = { button }; button.classList.add('dragging'); button.setPointerCapture?.(event.pointerId); button.addEventListener('pointermove', move); button.addEventListener('pointerup', stop); }, true); shortcutArea.addEventListener('click', (event) => { const button = event.target.closest('.shortcut'); if (button && suppressedShortcutClicks.has(button)) { event.preventDefault(); event.stopImmediatePropagation(); suppressedShortcutClicks.delete(button); } }, true);
+    const oldShortcutArea = document.querySelector('#desktop-shortcuts'); const cleanShortcutArea = oldShortcutArea.cloneNode(false); oldShortcutArea.replaceWith(cleanShortcutArea);
+    const pinKey = 'webdesk-pins'; let pinnedApps = []; try { pinnedApps = JSON.parse(localStorage.getItem(pinKey) || '[]'); } catch { pinnedApps = []; }
+    const savePins = () => localStorage.setItem(pinKey, JSON.stringify(pinnedApps));
+    const renderPins = () => { const area = document.querySelector('#pinned-apps'); area.replaceChildren(); document.querySelectorAll('.pin-app').forEach((button) => { const pinned = pinnedApps.includes(button.dataset.pin); button.classList.toggle('pinned', pinned); button.textContent = pinned ? '★' : '☆'; button.title = pinned ? 'Von Taskleiste lösen' : 'An Taskleiste anheften'; }); pinnedApps.forEach((id) => { const button = document.createElement('button'); button.className = 'pinned-task'; button.dataset.app = id; button.title = `${appNames[id]} öffnen`; button.textContent = ''; area.append(button); button.addEventListener('click', () => openWindow(id)); }); };
+    document.querySelectorAll('.pin-app').forEach((button) => button.addEventListener('click', (event) => { event.stopPropagation(); const id = button.dataset.pin; pinnedApps = pinnedApps.includes(id) ? pinnedApps.filter((entry) => entry !== id) : [...pinnedApps, id]; savePins(); renderPins(); })); renderPins();
+    document.querySelectorAll('.window').forEach((window) => {
+      window.addEventListener('pointerdown', () => { window.style.zIndex = ++topLayer; });
+      const controls = window.querySelector('.window-controls');
+      controls.addEventListener('pointerdown', (event) => event.stopPropagation());
+      controls.querySelector('[data-action="close"]').addEventListener('click', (event) => { event.stopPropagation(); window.classList.add('hidden'); });
+      controls.querySelector('[data-action="minimize"]').addEventListener('click', (event) => { event.stopPropagation(); window.classList.add('hidden'); });
+      controls.querySelector('[data-action="maximize"]').addEventListener('click', (event) => { event.stopPropagation(); window.classList.toggle('maximized'); });
+      const bar = window.querySelector('.titlebar');
+      bar.addEventListener('pointerdown', (event) => {
+        if (event.target.closest('.window-controls')) return;
+        if (window.classList.contains('maximized')) return;
+        const startX = event.clientX - window.offsetLeft; const startY = event.clientY - window.offsetTop;
+        const move = (moveEvent) => { window.style.left = `${Math.max(0, moveEvent.clientX - startX)}px`; window.style.top = `${Math.max(0, moveEvent.clientY - startY)}px`; };
+        const stop = () => { window.releasePointerCapture(event.pointerId); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); };
+        window.setPointerCapture(event.pointerId); window.addEventListener('pointermove', move); window.addEventListener('pointerup', stop);
+      });
+    });
+    const filesKey = 'webdesk-files';
+    const notes = document.querySelector('#notes-text'); const notesStatus = document.querySelector('#notes-status');
+    let files = []; let trash = [];
+    try { files = JSON.parse(localStorage.getItem(filesKey) || '[]'); } catch { files = []; }
+    try { trash = JSON.parse(localStorage.getItem('webdesk-trash') || '[]'); } catch { trash = []; }
+    const oldNote = localStorage.getItem('webdesk-notes');
+    if (!files.length && oldNote) { files.push({ name: 'Notizen.txt', content: oldNote }); localStorage.removeItem('webdesk-notes'); }
+    let currentFileName = files[0]?.name || null;
+    const saveFiles = () => localStorage.setItem(filesKey, JSON.stringify(files)); const saveTrash = () => localStorage.setItem('webdesk-trash', JSON.stringify(trash));
+    const fileSearch = document.querySelector('#file-search'); const fileSort = document.querySelector('#file-sort');
+    const renderFiles = () => {
+      const list = document.querySelector('#file-list'); list.replaceChildren(); const query = fileSearch.value.toLowerCase(); const visibleFiles = files.filter((file) => file.name.toLowerCase().includes(query)).sort((a, b) => fileSort.value === 'size' ? b.content.length - a.content.length : a.name.localeCompare(b.name));
+      document.querySelector('#file-count').textContent = `${visibleFiles.length} Datei${visibleFiles.length === 1 ? '' : 'en'}`;
+      if (!visibleFiles.length) { list.innerHTML = '<div class="empty-files">Keine passenden Dateien.</div>'; return; }
+      visibleFiles.forEach((file) => {
+        const row = document.createElement('div'); row.className = 'file-row'; row.tabIndex = 0;
+        const icon = document.createElement('span'); icon.className = 'file-icon'; icon.textContent = '[N]';
+        const details = document.createElement('div'); const name = document.createElement('strong'); name.textContent = file.name;
+        const meta = document.createElement('div'); meta.className = 'file-meta'; meta.textContent = `${file.content.length} Zeichen`;
+        details.append(name, meta); row.append(icon, details); row.addEventListener('click', () => openNote(file.name));
+        row.addEventListener('keydown', (event) => { if (event.key === 'Enter') openNote(file.name); }); list.append(row);
+      });
+    };
+    const renderTrash = () => { const list = document.querySelector('#trash-list'); list.replaceChildren(); document.querySelector('#trash-count').textContent = `${trash.length} Element${trash.length === 1 ? '' : 'e'}`; if (!trash.length) { list.innerHTML = '<div class="recycle-empty">Der Papierkorb ist leer.</div>'; return; } trash.forEach((file, index) => { const row = document.createElement('div'); row.className = 'file-row'; const icon = document.createElement('span'); icon.className = 'file-icon'; icon.textContent = '▱'; const details = document.createElement('div'); const name = document.createElement('strong'); name.textContent = file.name; const meta = document.createElement('div'); meta.className = 'file-meta'; meta.textContent = `${file.content.length} Zeichen`; details.append(name, meta); const restore = document.createElement('button'); restore.className = 'pill-button'; restore.textContent = 'Wiederherstellen'; restore.addEventListener('click', () => { files.push(trash.splice(index, 1)[0]); saveFiles(); saveTrash(); renderFiles(); renderTrash(); }); row.append(icon, details, restore); list.append(row); }); };
+    fileSearch.addEventListener('input', renderFiles); fileSort.addEventListener('change', renderFiles); document.querySelector('#empty-trash').addEventListener('click', () => { trash = []; saveTrash(); renderTrash(); }); renderTrash();
+    const openNote = (name) => { const file = files.find((entry) => entry.name === name); if (!file) return; currentFileName = file.name; notes.value = file.content; openWindow('notes'); };
+    const newNote = () => { let number = files.length + 1; let name = `Notiz ${number}.txt`; while (files.some((file) => file.name === name)) name = `Notiz ${++number}.txt`; files.push({ name, content: '' }); currentFileName = name; saveFiles(); renderFiles(); openNote(name); notes.focus(); };
+    const saveNotes = () => { if (!currentFileName) newNote(); const file = files.find((entry) => entry.name === currentFileName); file.content = notes.value; saveFiles(); renderFiles(); notesStatus.textContent = 'Gespeichert'; setTimeout(() => { notesStatus.textContent = ''; }, 1600); };
+    notes.addEventListener('input', () => { if (currentFileName) { const file = files.find((entry) => entry.name === currentFileName); if (file) { file.content = notes.value; saveFiles(); renderFiles(); } } });
+    document.querySelector('#new-note').addEventListener('click', newNote);
+    document.querySelector('[data-note-action="save"]').addEventListener('click', saveNotes);
+    document.querySelector('[data-note-action="delete"]').addEventListener('click', () => { const index = files.findIndex((file) => file.name === currentFileName); if (index >= 0) trash.push(files.splice(index, 1)[0]); currentFileName = files[0]?.name || null; notes.value = currentFileName ? files[0].content : ''; saveFiles(); saveTrash(); renderFiles(); renderTrash(); notesStatus.textContent = 'In den Papierkorb verschoben'; setTimeout(() => { notesStatus.textContent = ''; }, 1600); });
+    renderFiles(); if (currentFileName) notes.value = files[0].content;
+    let calculation = ''; const display = document.querySelector('#calc-display');
+    document.querySelectorAll('[data-key]').forEach((button) => button.addEventListener('click', () => { const key = button.dataset.key; if (key === 'C') calculation = ''; else if (key === '=') { try { calculation = String(Function(`return ${calculation}`)()); } catch { calculation = 'Fehler'; } } else calculation += key; display.textContent = calculation || '0'; }));
+    let calendarDate = new Date();
+    const renderCalendar = () => { const title = document.querySelector('#calendar-title'); const grid = document.querySelector('#calendar-grid'); const year = calendarDate.getFullYear(); const month = calendarDate.getMonth(); const firstDay = new Date(year, month, 1).getDay() || 7; const days = new Date(year, month + 1, 0).getDate(); title.textContent = calendarDate.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }); grid.replaceChildren(); ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].forEach((day) => { const cell = document.createElement('span'); cell.className = 'weekday'; cell.textContent = day; grid.append(cell); }); for (let index = 1; index < firstDay; index += 1) grid.append(document.createElement('span')); for (let day = 1; day <= days; day += 1) { const cell = document.createElement('span'); cell.className = 'day'; cell.textContent = day; if (day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear()) cell.classList.add('today'); grid.append(cell); } };
+    document.querySelector('#calendar-prev').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); });
+    document.querySelector('#calendar-next').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); }); renderCalendar();
+    const terminalOutput = document.querySelector('#terminal-output'); const terminalInput = document.querySelector('#terminal-input');
+    document.querySelector('#terminal-form').addEventListener('submit', (event) => { event.preventDefault(); const command = terminalInput.value.trim(); if (!command) return; const [action, ...parts] = command.split(' '); let response = ''; if (action === 'help') response = 'help  date  apps  echo [text]  clear'; else if (action === 'date') response = new Date().toLocaleString('de-DE'); else if (action === 'apps') response = 'Dateien, Notizen, Rechner, Kalender, Wetter, Aufgaben, Timer, Zeichenbrett'; else if (action === 'echo') response = parts.join(' '); else if (action === 'clear') terminalOutput.textContent = ''; else response = `Befehl nicht gefunden: ${action}`; if (action !== 'clear') terminalOutput.textContent += `> ${command}\n${response}\n`; terminalOutput.scrollTop = terminalOutput.scrollHeight; terminalInput.value = ''; });
+    const taskKey = 'webdesk-tasks'; let tasks = []; try { tasks = JSON.parse(localStorage.getItem(taskKey) || '[]'); } catch { tasks = []; }
+    const saveTasks = () => localStorage.setItem(taskKey, JSON.stringify(tasks)); const renderTasks = () => { const list = document.querySelector('#task-list'); list.replaceChildren(); if (!tasks.length) { const empty = document.createElement('li'); empty.textContent = 'Noch keine Aufgaben'; list.append(empty); return; } tasks.forEach((task, index) => { const item = document.createElement('li'); if (task.done) item.classList.add('done'); const check = document.createElement('input'); check.type = 'checkbox'; check.checked = task.done; check.addEventListener('change', () => { task.done = check.checked; saveTasks(); renderTasks(); }); const text = document.createElement('span'); text.textContent = task.text; const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'x'; remove.setAttribute('aria-label', 'Aufgabe löschen'); remove.addEventListener('click', () => { tasks.splice(index, 1); saveTasks(); renderTasks(); }); item.append(check, text, remove); list.append(item); }); }; document.querySelector('#task-form').addEventListener('submit', (event) => { event.preventDefault(); const input = document.querySelector('#task-input'); if (!input.value.trim()) return; tasks.push({ text: input.value.trim(), done: false }); input.value = ''; saveTasks(); renderTasks(); }); renderTasks();
+    let timerSeconds = 300; let timerId = null; const timerDisplay = document.querySelector('#timer-display'); const timerInput = document.querySelector('#timer-seconds'); const renderTimer = () => { const minutes = Math.floor(timerSeconds / 60).toString().padStart(2, '0'); const seconds = (timerSeconds % 60).toString().padStart(2, '0'); timerDisplay.textContent = `${minutes}:${seconds}`; }; document.querySelector('#timer-start').addEventListener('click', () => { if (timerId) { clearInterval(timerId); timerId = null; document.querySelector('#timer-start').textContent = 'Start'; return; } timerId = setInterval(() => { if (timerSeconds <= 0) { clearInterval(timerId); timerId = null; document.querySelector('#timer-start').textContent = 'Start'; return; } timerSeconds -= 1; renderTimer(); }, 1000); document.querySelector('#timer-start').textContent = 'Pause'; }); timerInput.addEventListener('change', () => { timerSeconds = Math.max(1, Number(timerInput.value) || 300); renderTimer(); }); document.querySelector('#timer-reset').addEventListener('click', () => { clearInterval(timerId); timerId = null; timerSeconds = Math.max(1, Number(timerInput.value) || 300); document.querySelector('#timer-start').textContent = 'Start'; renderTimer(); }); renderTimer();
+    const canvas = document.querySelector('#paint-canvas'); const context = canvas.getContext('2d'); let drawing = false; const paintPoint = (event) => { const rect = canvas.getBoundingClientRect(); return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height }; }; canvas.addEventListener('pointerdown', (event) => { drawing = true; canvas.setPointerCapture(event.pointerId); const point = paintPoint(event); context.beginPath(); context.moveTo(point.x, point.y); }); canvas.addEventListener('pointermove', (event) => { if (!drawing) return; const point = paintPoint(event); context.lineTo(point.x, point.y); context.strokeStyle = document.querySelector('#paint-color').value; context.lineWidth = 4; context.lineCap = 'round'; context.stroke(); }); canvas.addEventListener('pointerup', () => { drawing = false; }); document.querySelector('#paint-clear').addEventListener('click', () => context.clearRect(0, 0, canvas.width, canvas.height));
+    document.querySelector('#system-browser').textContent = navigator.userAgent.includes('Edg') ? 'Microsoft Edge' : navigator.userAgent.includes('Chrome') ? 'Google Chrome' : navigator.userAgent; document.querySelector('#system-screen').textContent = `${window.innerWidth} x ${window.innerHeight} Pixel`; document.querySelector('#system-storage').textContent = `${files.length} Notiz(en), ${tasks.length} Aufgabe(n) lokal gespeichert`;
+    const audio = document.querySelector('#music-audio'); const musicUpload = document.querySelector('#music-upload'); const playlist = document.querySelector('#music-playlist'); const onlineResults = document.querySelector('#online-results'); let musicFiles = []; let musicIndex = -1; let onlineTracks = []; let onlineIndex = -1; const renderPlaylist = () => { playlist.replaceChildren(); musicFiles.forEach((file, index) => { const item = document.createElement('li'); const button = document.createElement('button'); button.type = 'button'; button.textContent = `${index + 1}. ${file.name}`; button.classList.toggle('active', index === musicIndex); button.addEventListener('click', () => playTrack(index)); item.append(button); playlist.append(item); }); }; const playTrack = (index, autoplay = true) => { if (!musicFiles[index]) return; musicIndex = index; onlineIndex = -1; audio.src = URL.createObjectURL(musicFiles[index]); document.querySelector('#music-title').textContent = musicFiles[index].name; document.querySelector('#music-status').textContent = `${index + 1} von ${musicFiles.length} lokalen Titeln`; renderPlaylist(); if (autoplay) audio.play().catch(() => {}); }; musicUpload.addEventListener('change', (event) => { musicFiles = [...event.target.files]; musicIndex = -1; renderPlaylist(); if (musicFiles.length) playTrack(0, false); }); const playOnlineTrack = (index, autoplay = true) => { const track = onlineTracks[index]; if (!track || !track.previewUrl) return; onlineIndex = index; musicIndex = -1; audio.src = track.previewUrl; document.querySelector('#music-title').textContent = track.trackName; document.querySelector('#music-status').textContent = `${track.artistName} · Online-Vorschau`; if (autoplay) audio.play().catch(() => {}); }; const renderOnlineResults = () => { onlineResults.replaceChildren(); onlineTracks.forEach((track, index) => { const item = document.createElement('li'); const button = document.createElement('button'); button.type = 'button'; const title = document.createElement('strong'); title.textContent = track.trackName; const artist = document.createElement('span'); artist.textContent = `${track.artistName} · ${track.collectionName || 'Single'}`; button.append(title, artist); button.addEventListener('click', () => playOnlineTrack(index)); item.append(button); onlineResults.append(item); }); }; document.querySelector('#music-search').addEventListener('submit', async (event) => { event.preventDefault(); const query = document.querySelector('#music-query').value.trim(); const status = document.querySelector('#online-status'); if (!query) return; status.textContent = 'Suche läuft...'; onlineResults.replaceChildren(); try { const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&country=DE&limit=12`); if (!response.ok) throw new Error('search'); const data = await response.json(); onlineTracks = data.results.filter((track) => track.previewUrl); renderOnlineResults(); status.textContent = onlineTracks.length ? `${onlineTracks.length} Treffer mit Hörprobe` : 'Keine abspielbare Hörprobe gefunden.'; } catch { status.textContent = 'Online-Suche nicht erreichbar. Prüfe deine Internetverbindung.'; } }); document.querySelector('#music-next').addEventListener('click', () => { if (onlineIndex >= 0 && onlineTracks.length) playOnlineTrack((onlineIndex + 1) % onlineTracks.length); else if (musicFiles.length) playTrack((musicIndex + 1) % musicFiles.length); }); document.querySelector('#music-prev').addEventListener('click', () => { if (onlineIndex >= 0 && onlineTracks.length) playOnlineTrack((onlineIndex - 1 + onlineTracks.length) % onlineTracks.length); else if (musicFiles.length) playTrack((musicIndex - 1 + musicFiles.length) % musicFiles.length); }); audio.addEventListener('ended', () => { if (onlineIndex >= 0 && onlineTracks.length) playOnlineTrack((onlineIndex + 1) % onlineTracks.length); else if (musicFiles.length) playTrack((musicIndex + 1) % musicFiles.length); }); audio.addEventListener('play', () => { if (onlineIndex >= 0) document.querySelector('#music-status').textContent = `${onlineTracks[onlineIndex].artistName} · Läuft`; else if (musicIndex >= 0) document.querySelector('#music-status').textContent = `${musicIndex + 1} von ${musicFiles.length} lokalen Titeln · Läuft`; }); audio.addEventListener('pause', () => { if (onlineIndex >= 0) document.querySelector('#music-status').textContent = `${onlineTracks[onlineIndex].artistName} · Pausiert`; else if (musicIndex >= 0) document.querySelector('#music-status').textContent = `${musicIndex + 1} von ${musicFiles.length} lokalen Titeln · Pausiert`; });
+    document.querySelector('#gallery-upload').addEventListener('change', (event) => { const selectedFiles = [...event.target.files]; document.querySelector('#gallery-count').textContent = selectedFiles.length; document.querySelector('#gallery-list').textContent = selectedFiles.length ? selectedFiles.map((file) => file.name).join(' · ') : 'Noch keine Bilder ausgewählt.'; });
+    const cameraWindow = document.querySelector('#camera'); const cameraVideo = document.querySelector('#camera-video'); const cameraCanvas = document.querySelector('#camera-canvas'); const cameraStatus = document.querySelector('#camera-status'); const cameraStart = document.querySelector('#camera-start'); const cameraSnapshot = document.querySelector('#camera-snapshot'); const cameraStop = document.querySelector('#camera-stop'); let cameraStream = null; const stopCamera = () => { if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop()); cameraStream = null; cameraVideo.srcObject = null; cameraStart.disabled = false; cameraSnapshot.disabled = true; cameraStop.disabled = true; cameraStatus.textContent = 'Kamera gestoppt.'; }; cameraStart.addEventListener('click', async () => { if (!navigator.mediaDevices?.getUserMedia) { cameraStatus.textContent = 'Dein Browser unterstützt keinen Kamerazugriff.'; return; } try { cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }); cameraVideo.srcObject = cameraStream; cameraStart.disabled = true; cameraSnapshot.disabled = false; cameraStop.disabled = false; cameraStatus.textContent = 'Kamera aktiv - Livebild wird nur lokal angezeigt.'; } catch (error) { cameraStatus.textContent = error.name === 'NotAllowedError' ? 'Kamerazugriff wurde abgelehnt. Erlaube die Kamera in den Browsereinstellungen.' : 'Kamera konnte nicht gestartet werden.'; } }); cameraStop.addEventListener('click', stopCamera); cameraSnapshot.addEventListener('click', () => { if (!cameraStream || !cameraVideo.videoWidth) return; cameraCanvas.width = cameraVideo.videoWidth; cameraCanvas.height = cameraVideo.videoHeight; cameraCanvas.getContext('2d').drawImage(cameraVideo, 0, 0); cameraCanvas.toBlob((blob) => { const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `webdesk-foto-${Date.now()}.png`; link.click(); URL.revokeObjectURL(link.href); cameraStatus.textContent = 'Foto aufgenommen und als PNG heruntergeladen.'; }, 'image/png'); }); cameraWindow.querySelectorAll('[data-action="close"], [data-action="minimize"]').forEach((button) => button.addEventListener('click', stopCamera));
+    const browserView = document.querySelector('#browser-view'); const browserAddress = document.querySelector('#browser-address'); const browserStatus = document.querySelector('#browser-status'); const browserExternal = document.querySelector('#browser-external'); let browserHistory = ['https://example.com']; let browserIndex = 0; const browserUrl = (value) => { const input = value.trim(); if (!input) return 'https://www.bing.com'; if (/^[a-z]+:\/\//i.test(input)) return input; if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(input)) return `https://${input}`; return `https://www.bing.com/search?q=${encodeURIComponent(input)}`; }; const browserNavigate = (value, addHistory = true) => { const url = browserUrl(value); browserView.src = url; browserAddress.value = url; browserExternal.href = url; browserStatus.textContent = `Lade ${url}`; if (addHistory) { browserHistory = browserHistory.slice(0, browserIndex + 1); browserHistory.push(url); browserIndex += 1; } }; document.querySelector('#browser-form').addEventListener('submit', (event) => { event.preventDefault(); browserNavigate(browserAddress.value); }); document.querySelector('#browser-back').addEventListener('click', () => { if (browserIndex > 0) { browserIndex -= 1; browserNavigate(browserHistory[browserIndex], false); } }); document.querySelector('#browser-forward').addEventListener('click', () => { if (browserIndex < browserHistory.length - 1) { browserIndex += 1; browserNavigate(browserHistory[browserIndex], false); } }); document.querySelector('#browser-reload').addEventListener('click', () => { browserView.src = browserView.src; browserStatus.textContent = 'Neu laden...'; }); browserView.addEventListener('load', () => { browserStatus.textContent = 'Seite geladen'; }); document.querySelector('#browser-new-tab').addEventListener('click', () => { browserAddress.value = 'https://example.com'; browserNavigate(browserAddress.value); });
+    const nativeFetch = window.fetch.bind(window); window.fetch = async (...args) => { try { return await nativeFetch(...args); } catch (error) { await new Promise((resolve) => setTimeout(resolve, 350)); return nativeFetch(...args); } };
+    document.querySelector('#browser-open-external').addEventListener('click', () => window.open(browserExternal.href, '_blank', 'noopener'));
+    const inlineIconPaths = { files: '<path d="M3 6h7l2 2h9v11H3z"/><path d="M3 8h18"/>', notes: '<path d="M5 3h10l4 4v14H5z"/><path d="M9 12h6M9 16h6"/>', calculator: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h2M8 19h2M12 19h2"/>', calendar: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9h16M8 13h2M12 13h2M8 16h2"/>', weather: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>', terminal: '<path d="m5 7 5 5-5 5M12 17h7"/>', tasks: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="m7 9 2 2 4-4M7 15l2 2 4-4"/>', timer: '<circle cx="12" cy="13" r="7"/><path d="M12 13V9M9 3h6M12 3v3"/>', paint: '<path d="m14 4 6 6-9 9H5v-6z"/><path d="m12 6 6 6"/>', system: '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3 1a8 8 0 0 0-1.7-1L14.6 3h-4l-.3 2a8 8 0 0 0-1.7 1l-2.3-1-2 3.5L6.3 11a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-1a8 8 0 0 0 1.7 1l.3 2h4l.3-2a8 8 0 0 0 1.7-1l2.3 1 2-3.5-2-1.5c.1-.3.1-.7.1-1z"/>', music: '<path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/>', gallery: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="2"/><path d="m4 18 5-5 3 3 3-4 6 6"/>', browser: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>', camera: '<path d="M4 7h4l1.5-2h5L16 7h4v12H4z"/><circle cx="12" cy="13" r="4"/>', settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>', recycle: '<path d="M7 7h10M9 7v12h6V7M10 4h4"/>' };
+    const inlineIcon = (id, small = false) => { const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('class', `inline-app-icon${small ? ' small' : ''}`); svg.setAttribute('aria-hidden', 'true'); svg.innerHTML = inlineIconPaths[id] || inlineIconPaths.system; svg.querySelectorAll('path, rect, circle').forEach((part) => { part.setAttribute('fill', 'none'); part.setAttribute('stroke', 'currentColor'); part.setAttribute('stroke-width', '1.8'); part.setAttribute('stroke-linecap', 'round'); part.setAttribute('stroke-linejoin', 'round'); }); svg.style.color = '#1265bc'; return svg; };
+    const installInlineLauncherIcons = () => document.querySelectorAll('.app-launch').forEach((button) => { if (!button.querySelector('.inline-app-icon')) button.prepend(inlineIcon(button.dataset.open)); }); const installInlinePinnedIcons = () => document.querySelectorAll('.pinned-task').forEach((button) => { button.replaceChildren(inlineIcon(button.dataset.app, true)); }); const installInlineTaskbarIcons = () => { const ids = ['files', 'notes', 'calculator']; document.querySelectorAll('.taskbar > .task-button').forEach((button, index) => { if (!button.querySelector('.inline-app-icon')) button.prepend(inlineIcon(ids[index], true)); }); }; installInlineLauncherIcons(); installInlinePinnedIcons(); installInlineTaskbarIcons(); new MutationObserver(() => { installInlineLauncherIcons(); installInlinePinnedIcons(); installInlineTaskbarIcons(); }).observe(document.querySelector('#pinned-apps'), { childList: true });
+    const desktopShortcutArea = document.querySelector('#desktop-shortcuts'); const desktopShortcutObserver = new MutationObserver(() => { if (desktopShortcutArea.dataset.rebuilding) return; rebuildInlineShortcuts(); }); const rebuildInlineShortcuts = () => { desktopShortcutArea.dataset.rebuilding = 'true'; const entries = [...desktopShortcuts]; desktopShortcutArea.replaceChildren(); entries.forEach((id, index) => { const button = document.createElement('button'); button.className = 'shortcut'; button.dataset.open = id; button.append(inlineIcon(id), Object.assign(document.createElement('span'), { textContent: appNames[id] })); const position = shortcutPositions[id] || { x: 0, y: index * 87 }; button.style.left = `${position.x}px`; button.style.top = `${position.y}px`; let dragging = false; let startX; let startY; let originX; let originY; button.addEventListener('pointerdown', (event) => { event.preventDefault(); button.setPointerCapture(event.pointerId); startX = event.clientX; startY = event.clientY; originX = position.x; originY = position.y; }); button.addEventListener('pointermove', (event) => { if (!button.hasPointerCapture(event.pointerId)) return; const dx = event.clientX - startX; const dy = event.clientY - startY; if (Math.abs(dx) + Math.abs(dy) > 4) dragging = true; if (dragging) { position.x = Math.max(0, Math.min(desktop.offsetWidth - 92, originX + dx)); position.y = Math.max(0, Math.min(desktop.offsetHeight - 110, originY + dy)); button.style.left = `${position.x}px`; button.style.top = `${position.y}px`; } }); button.addEventListener('pointerup', (event) => { button.releasePointerCapture(event.pointerId); if (dragging) { shortcutPositions[id] = { x: position.x, y: position.y }; saveShortcuts(); } else openWindow(id); dragging = false; }); desktopShortcutArea.append(button); }); delete desktopShortcutArea.dataset.rebuilding; }; rebuildInlineShortcuts(); desktopShortcutObserver.observe(desktopShortcutArea, { childList: true });
+    const updateClock = () => { const now = new Date(); const time = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); const date = now.toLocaleDateString('de-DE'); document.querySelector('#clock').textContent = `${time}\n${date}`; document.querySelector('#widget-time').textContent = time; document.querySelector('#widget-date').textContent = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }); }; updateClock(); setInterval(updateClock, 1000); window.addEventListener('load', () => { const bootScreen = document.querySelector('#boot-screen'); const bootPercent = document.querySelector('#boot-percent'); const startedAt = performance.now(); const duration = 2800; const updateBoot = (now) => { const progress = Math.min(100, Math.round(((now - startedAt) / duration) * 100)); bootPercent.textContent = `${progress}%`; if (progress < 100) requestAnimationFrame(updateBoot); else setTimeout(() => bootScreen.classList.add('hidden'), 450); }; requestAnimationFrame(updateBoot); });
+    const originalSetPointerCapture = Element.prototype.setPointerCapture; const originalReleasePointerCapture = Element.prototype.releasePointerCapture; Element.prototype.setPointerCapture = function (pointerId) { try { return originalSetPointerCapture.call(this, pointerId); } catch { return undefined; } }; Element.prototype.releasePointerCapture = function (pointerId) { try { return originalReleasePointerCapture.call(this, pointerId); } catch { return undefined; } };
+  </script>
+</body>
+</html>
